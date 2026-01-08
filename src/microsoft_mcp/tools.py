@@ -472,6 +472,110 @@ def reply_all_email(account_id: str, email_id: str, body: str) -> dict[str, str]
 
 
 @mcp.tool
+def create_reply_draft(
+    account_id: str,
+    email_id: str,
+    body: str | None = None,
+    body_type: str = "Text",
+) -> dict[str, Any]:
+    """Create a reply draft (does NOT send) - maintains thread context
+
+    This creates a draft reply that appears in the email thread, preserving
+    the conversation context. The draft is saved to the Drafts folder and
+    can be edited before sending.
+
+    Args:
+        account_id: The Microsoft account ID
+        email_id: The ID of the email to reply to
+        body: Optional reply body content. If not provided, creates empty draft.
+        body_type: Content type - "Text" or "HTML" (default: "Text")
+
+    Returns:
+        dict with draft_id, conversation_id, subject, and status
+    """
+    endpoint = f"/me/messages/{email_id}/createReply"
+    payload: dict[str, Any] = {}
+
+    if body:
+        payload["message"] = {
+            "body": {
+                "contentType": body_type,
+                "content": body
+            }
+        }
+
+    result = graph.request("POST", endpoint, account_id, json=payload if payload else None)
+
+    if not result:
+        raise ValueError(f"Failed to create reply draft for email {email_id}")
+
+    return {
+        "status": "draft_created",
+        "draft_id": result.get("id"),
+        "conversation_id": result.get("conversationId"),
+        "subject": result.get("subject"),
+        "to_recipients": [
+            r.get("emailAddress", {}).get("address")
+            for r in result.get("toRecipients", [])
+        ],
+    }
+
+
+@mcp.tool
+def create_reply_all_draft(
+    account_id: str,
+    email_id: str,
+    body: str | None = None,
+    body_type: str = "Text",
+) -> dict[str, Any]:
+    """Create a reply-all draft (does NOT send) - maintains thread context
+
+    This creates a draft reply-all that appears in the email thread, preserving
+    the conversation context. The draft is saved to the Drafts folder and
+    includes all original recipients.
+
+    Args:
+        account_id: The Microsoft account ID
+        email_id: The ID of the email to reply to
+        body: Optional reply body content. If not provided, creates empty draft.
+        body_type: Content type - "Text" or "HTML" (default: "Text")
+
+    Returns:
+        dict with draft_id, conversation_id, subject, and status
+    """
+    endpoint = f"/me/messages/{email_id}/createReplyAll"
+    payload: dict[str, Any] = {}
+
+    if body:
+        payload["message"] = {
+            "body": {
+                "contentType": body_type,
+                "content": body
+            }
+        }
+
+    result = graph.request("POST", endpoint, account_id, json=payload if payload else None)
+
+    if not result:
+        raise ValueError(f"Failed to create reply-all draft for email {email_id}")
+
+    return {
+        "status": "draft_created",
+        "draft_id": result.get("id"),
+        "conversation_id": result.get("conversationId"),
+        "subject": result.get("subject"),
+        "to_recipients": [
+            r.get("emailAddress", {}).get("address")
+            for r in result.get("toRecipients", [])
+        ],
+        "cc_recipients": [
+            r.get("emailAddress", {}).get("address")
+            for r in result.get("ccRecipients", [])
+        ],
+    }
+
+
+@mcp.tool
 def list_events(
     account_id: str,
     days_ahead: int = 7,
